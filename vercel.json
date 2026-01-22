@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://minsengcar.base44.app/api/:path*" },
+    { "source": "/:path*", "destination": "/" }
+  ]
+}
