@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from "@/api/base44Client";
+import { reviewsApi } from '@/api';
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,8 +13,8 @@ export default function Reviews() {
     const [selectedImage, setSelectedImage] = useState(null);
     
     const { data: reviews, isLoading } = useQuery({
-        queryKey: ['reviews'],
-        queryFn: () => base44.entities.Review.list('-created_date'),
+        queryKey: ['all-reviews'],
+        queryFn: () => reviewsApi.list(),
         initialData: [],
     });
 

@@ -2,10 +2,9 @@ import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Phone } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { base44 } from "@/api/base44Client";
-import { toast } from "sonner";
+import { Phone, CheckCircle, User, Car, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { consultationsApi } from '@/api';
 
 export default function CTASection() {
     const [formData, setFormData] = useState({
@@ -15,17 +14,36 @@ export default function CTASection() {
         message: ''
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isSuccess, setIsSuccess] = useState(false);
+    const [errors, setErrors] = useState({});
+
+    const validatePhone = (phone) => {
+        const digits = phone.replace(/\D/g, '');
+        return digits.length >= 10 && digits.length <= 11;
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!formData.customer_name || !formData.phone) {
-            toast.error('성함과 연락처는 필수입니다.');
+        const newErrors = {};
+
+        if (!formData.customer_name) {
+            newErrors.customer_name = '성함을 입력해주세요';
+        }
+        if (!formData.phone) {
+            newErrors.phone = '연락처를 입력해주세요';
+        } else if (!validatePhone(formData.phone)) {
+            newErrors.phone = '01012345678 형식으로 입력해주세요';
+        }
+
+        if (Object.keys(newErrors).length > 0) {
+            setErrors(newErrors);
             return;
         }
+        setErrors({});
 
         setIsSubmitting(true);
         try {
-            await base44.entities.Consultation.create({
+            await consultationsApi.create({
                 ...formData,
                 status: '대기중'
             });
@@ -38,15 +56,18 @@ export default function CTASection() {
                 });
             }
 
-            toast.success('상담 신청이 완료되었습니다!');
+            setIsSuccess(true);
             setFormData({
                 customer_name: '',
                 phone: '',
                 vehicle_name: '',
                 message: ''
             });
+
+            // 2초 후 폼으로 복귀
+            setTimeout(() => setIsSuccess(false), 2000);
         } catch (error) {
-            toast.error('신청 중 오류가 발생했습니다.');
+            alert('신청 중 오류가 발생했습니다. 다시 시도해주세요.');
         } finally {
             setIsSubmitting(false);
         }
@@ -75,44 +96,95 @@ export default function CTASection() {
                     </p>
                     
                     {/* Contact Form */}
-                    <form onSubmit={handleSubmit} className="max-w-xl mx-auto mb-8">
-                        <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 space-y-4">
-                            <Input
-                                placeholder="성함"
-                                value={formData.customer_name}
-                                onChange={(e) => setFormData({...formData, customer_name: e.target.value})}
-                                className="bg-white text-slate-900 border-none h-12"
-                                required
-                            />
-                            <Input
-                                placeholder="연락처"
-                                type="tel"
-                                value={formData.phone}
-                                onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                                className="bg-white text-slate-900 border-none h-12"
-                                required
-                            />
-                            <Input
-                                placeholder="희망하시는 차종"
-                                value={formData.vehicle_name}
-                                onChange={(e) => setFormData({...formData, vehicle_name: e.target.value})}
-                                className="bg-white text-slate-900 border-none h-12"
-                            />
-                            <Textarea
-                                placeholder="궁금하신 부분을 남겨주세요"
-                                value={formData.message}
-                                onChange={(e) => setFormData({...formData, message: e.target.value})}
-                                className="bg-white text-slate-900 border-none min-h-24"
-                            />
-                            <Button 
-                                type="submit"
-                                disabled={isSubmitting}
-                                className="w-full bg-slate-900 hover:bg-slate-800 text-white px-8 py-6 text-lg rounded-xl font-semibold"
-                            >
-                                {isSubmitting ? '전송 중...' : '상담 요청하기'}
-                            </Button>
-                        </div>
-                    </form>
+                    <div className="max-w-xl mx-auto mb-8">
+                        <AnimatePresence mode="wait">
+                            {isSuccess ? (
+                                <motion.div
+                                    key="success"
+                                    initial={{ opacity: 0, scale: 0.9 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    className="bg-white/10 backdrop-blur-sm rounded-2xl p-10 text-center"
+                                >
+                                    <div className="w-20 h-20 rounded-full bg-green-500 flex items-center justify-center mx-auto mb-6">
+                                        <CheckCircle className="w-10 h-10 text-white" />
+                                    </div>
+                                    <h3 className="text-2xl font-bold text-white mb-3">상담 신청 완료!</h3>
+                                    <p className="text-white/80 text-lg">빠른 시일 내에 연락드리겠습니다.</p>
+                                </motion.div>
+                            ) : (
+                                <motion.form
+                                    key="form"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    onSubmit={handleSubmit}
+                                    className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 space-y-4"
+                                >
+                                    <div className="space-y-1">
+                                        <div className="relative">
+                                            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                            <Input
+                                                placeholder="홍길동"
+                                                value={formData.customer_name}
+                                                onChange={(e) => {
+                                                    setFormData({...formData, customer_name: e.target.value});
+                                                    if (errors.customer_name) setErrors({...errors, customer_name: ''});
+                                                }}
+                                                className={`pl-10 bg-white text-slate-900 h-12 ${errors.customer_name ? 'border-2 border-red-500' : 'border-none'}`}
+                                            />
+                                        </div>
+                                        {errors.customer_name && <p className="text-red-300 text-sm mt-1">{errors.customer_name}</p>}
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className="relative">
+                                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                            <Input
+                                                placeholder="01012345678"
+                                                type="tel"
+                                                value={formData.phone}
+                                                onChange={(e) => {
+                                                    setFormData({...formData, phone: e.target.value});
+                                                    if (errors.phone) setErrors({...errors, phone: ''});
+                                                }}
+                                                className={`pl-10 bg-white text-slate-900 h-12 ${errors.phone ? 'border-2 border-red-500' : 'border-none'}`}
+                                            />
+                                        </div>
+                                        {errors.phone && <p className="text-red-300 text-sm mt-1">{errors.phone}</p>}
+                                    </div>
+                                    <div className="relative">
+                                        <Car className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                        <Input
+                                            placeholder="희망 차종"
+                                            value={formData.vehicle_name}
+                                            onChange={(e) => setFormData({...formData, vehicle_name: e.target.value})}
+                                            className="pl-10 bg-white text-slate-900 border-none h-12"
+                                        />
+                                    </div>
+                                    <Textarea
+                                        placeholder="문의사항"
+                                        value={formData.message}
+                                        onChange={(e) => setFormData({...formData, message: e.target.value})}
+                                        className="bg-white text-slate-900 border-none min-h-24"
+                                    />
+                                    <Button
+                                        type="submit"
+                                        disabled={isSubmitting}
+                                        className="w-full bg-slate-900 hover:bg-slate-800 text-white px-8 py-6 text-lg rounded-xl font-semibold"
+                                    >
+                                        {isSubmitting ? (
+                                            <>
+                                                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                                                신청 중...
+                                            </>
+                                        ) : (
+                                            '무료 상담 신청하기'
+                                        )}
+                                    </Button>
+                                </motion.form>
+                            )}
+                        </AnimatePresence>
+                    </div>
 
                     {/* Phone Number */}
                     <div className="flex items-center justify-center gap-2 text-white">

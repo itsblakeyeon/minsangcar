@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { base44 } from '@/api/base44Client';
+import { consultationsApi } from '@/api';
 import { Loader2, CheckCircle, Car, Phone, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -28,7 +28,7 @@ const useMediaQuery = (query) => {
     return matches;
 };
 
-const ModalContent = ({ isSuccess, isSubmitting, formData, setFormData, handleSubmit, vehicle }) => (
+const ModalContent = ({ isSuccess, isSubmitting, formData, setFormData, handleSubmit, vehicle, errors, setErrors }) => (
     <AnimatePresence mode="wait">
         {isSuccess ? (
             <motion.div 
@@ -69,26 +69,32 @@ const ModalContent = ({ isSuccess, isSubmitting, formData, setFormData, handleSu
                             <Input
                                 placeholder="홍길동"
                                 value={formData.customer_name}
-                                onChange={(e) => setFormData({...formData, customer_name: e.target.value})}
-                                required
-                                className="pl-10 bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#4880EE] focus:ring-[#4880EE]"
+                                onChange={(e) => {
+                                    setFormData({...formData, customer_name: e.target.value});
+                                    if (errors?.customer_name) setErrors({...errors, customer_name: ''});
+                                }}
+                                className={`pl-10 bg-white text-slate-900 placeholder:text-slate-400 focus:border-[#4880EE] focus:ring-[#4880EE] ${errors?.customer_name ? 'border-red-500 border-2' : 'border-slate-200'}`}
                                 autoFocus={false}
                             />
                         </div>
+                        {errors?.customer_name && <p className="text-red-500 text-sm">{errors.customer_name}</p>}
                     </div>
-                    
+
                     <div className="space-y-2">
                         <Label className="text-slate-700">연락처</Label>
                         <div className="relative">
                             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                             <Input
-                                placeholder="010-0000-0000"
+                                placeholder="01012345678"
                                 value={formData.phone}
-                                onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                                required
-                                className="pl-10 bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#4880EE] focus:ring-[#4880EE]"
+                                onChange={(e) => {
+                                    setFormData({...formData, phone: e.target.value});
+                                    if (errors?.phone) setErrors({...errors, phone: ''});
+                                }}
+                                className={`pl-10 bg-white text-slate-900 placeholder:text-slate-400 focus:border-[#4880EE] focus:ring-[#4880EE] ${errors?.phone ? 'border-red-500 border-2' : 'border-slate-200'}`}
                             />
                         </div>
+                        {errors?.phone && <p className="text-red-500 text-sm">{errors.phone}</p>}
                     </div>
                     
                     <div className="space-y-2">
@@ -162,37 +168,64 @@ export default function ConsultationModal({ open, onClose, vehicle }) {
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
+    const [errors, setErrors] = useState({});
+
+    const validatePhone = (phone) => {
+        const digits = phone.replace(/\D/g, '');
+        return digits.length >= 10 && digits.length <= 11;
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setIsSubmitting(true);
-        
-        await base44.entities.Consultation.create({
-            ...formData,
-            vehicle_name: vehicle?.name || ''
-        });
-        
-        setIsSubmitting(false);
-        setIsSuccess(true);
+        const newErrors = {};
 
-        // Meta Pixel Lead Event
-        if (typeof window !== 'undefined' && typeof window.fbq !== 'undefined') {
-            window.fbq('track', 'Lead', {
-                content_name: vehicle?.name || '일반 상담',
-                content_category: '장기렌트 상담'
-            });
+        if (!formData.customer_name) {
+            newErrors.customer_name = '이름을 입력해주세요';
+        }
+        if (!formData.phone) {
+            newErrors.phone = '연락처를 입력해주세요';
+        } else if (!validatePhone(formData.phone)) {
+            newErrors.phone = '01012345678 형식으로 입력해주세요';
         }
 
-        setTimeout(() => {
-            setIsSuccess(false);
-            setFormData({
-                customer_name: '',
-                phone: '',
-                preferred_method: '상관없음',
-                message: ''
+        if (Object.keys(newErrors).length > 0) {
+            setErrors(newErrors);
+            return;
+        }
+        setErrors({});
+        setIsSubmitting(true);
+
+        try {
+            await consultationsApi.create({
+                ...formData,
+                vehicle_name: vehicle?.name || ''
             });
-            onClose();
-        }, 2000);
+
+            setIsSuccess(true);
+
+            // Meta Pixel Lead Event
+            if (typeof window !== 'undefined' && typeof window.fbq !== 'undefined') {
+                window.fbq('track', 'Lead', {
+                    content_name: vehicle?.name || '일반 상담',
+                    content_category: '장기렌트 상담'
+                });
+            }
+
+            setTimeout(() => {
+                setIsSuccess(false);
+                setFormData({
+                    customer_name: '',
+                    phone: '',
+                    preferred_method: '상관없음',
+                    message: ''
+                });
+                onClose();
+            }, 2000);
+        } catch (error) {
+            alert('상담 신청 중 오류가 발생했습니다. 다시 시도해주세요.');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     if (isMobile) {
@@ -200,13 +233,15 @@ export default function ConsultationModal({ open, onClose, vehicle }) {
             <Drawer open={open} onOpenChange={onClose}>
                 <DrawerContent className="bg-white border-t border-slate-200">
                     <div className="mx-auto w-full max-w-lg px-6 pt-12 pb-6">
-                        <ModalContent 
+                        <ModalContent
                             isSuccess={isSuccess}
                             isSubmitting={isSubmitting}
                             formData={formData}
                             setFormData={setFormData}
                             handleSubmit={handleSubmit}
                             vehicle={vehicle}
+                            errors={errors}
+                            setErrors={setErrors}
                         />
                     </div>
                 </DrawerContent>
@@ -217,13 +252,15 @@ export default function ConsultationModal({ open, onClose, vehicle }) {
     return (
         <Dialog open={open} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-lg bg-white border-slate-200 text-slate-900">
-                <ModalContent 
+                <ModalContent
                     isSuccess={isSuccess}
                     isSubmitting={isSubmitting}
                     formData={formData}
                     setFormData={setFormData}
                     handleSubmit={handleSubmit}
                     vehicle={vehicle}
+                    errors={errors}
+                    setErrors={setErrors}
                 />
             </DialogContent>
         </Dialog>

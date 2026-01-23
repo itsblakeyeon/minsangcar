@@ -1,12 +1,11 @@
 import React, { useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { vehiclesApi, reviewsApi } from '@/api';
 
 import HeroSection from '@/components/landing/HeroSection';
 import HeroImageSlider from '@/components/landing/HeroImageSlider';
 import VehiclesSection from '@/components/landing/VehiclesSection';
 import ChatConversationSection from '@/components/landing/ChatConversationSection';
-import TeamShowcaseSection from '@/components/landing/TeamShowcaseSection';
 import ProcessSection from '@/components/landing/ProcessSection';
 import TradeInSection from '@/components/landing/TradeInSection';
 import ReviewSection from '@/components/landing/ReviewSection';
@@ -25,12 +24,12 @@ export default function Home() {
     
     const { data: vehicles = [] } = useQuery({
         queryKey: ['vehicles'],
-        queryFn: () => base44.entities.Vehicle.list()
+        queryFn: () => vehiclesApi.list()
     });
-    
+
     const { data: reviews = [] } = useQuery({
-        queryKey: ['reviews'],
-        queryFn: () => base44.entities.Review.filter({ is_featured: true }, '-created_date', 3)
+        queryKey: ['featured-reviews'],
+        queryFn: () => reviewsApi.listFeatured(3)
     });
     
     const handleScrollToVehicles = () => {
@@ -62,8 +61,6 @@ export default function Home() {
 
             <ChatConversationSection />
 
-            <TeamShowcaseSection />
-            
             <div id="process">
                 <ProcessSection />
             </div>
