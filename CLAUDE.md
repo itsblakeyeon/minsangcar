@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Korean car leasing/rental landing site ("민생지원카") built on the Base44 platform. React frontend with Vite, using Base44 SDK for backend entities, authentication, and serverless functions.
+Korean car leasing/rental landing site ("민생지원카"). React frontend with Vite, using Supabase for database. Public landing page with consultation form - no authentication required.
 
 ## Commands
 
@@ -21,8 +21,10 @@ npm run preview      # Preview production build
 
 Create `.env.local` with:
 ```
-VITE_BASE44_APP_ID=your_app_id
-VITE_BASE44_APP_BASE_URL=your_backend_url
+VITE_SUPABASE_URL=https://xxx.supabase.co
+VITE_SUPABASE_ANON_KEY=your_anon_key
+VITE_SLACK_WEBHOOK_URL=https://hooks.slack.com/services/xxx
+VITE_GOOGLE_SHEET_WEBHOOK_URL=https://script.google.com/macros/s/xxx/exec
 ```
 
 ## Architecture
@@ -34,45 +36,66 @@ VITE_BASE44_APP_BASE_URL=your_backend_url
   - `components/ui/` - shadcn/ui components (Radix-based, don't modify directly)
   - `components/landing/` - Page-specific sections (HeroSection, VehiclesSection, etc.)
 - **State Management**
-  - React Query for server state: `useQuery` with `base44.entities.EntityName.list()/filter()`
-  - Auth state via `AuthContext` (`useAuth` hook)
+  - React Query for server state with Supabase API
 
-### Backend Functions (`functions/`)
-Deno-based serverless functions deployed to Base44. Use `createClientFromRequest` from `@base44/sdk`:
-```typescript
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
-
-Deno.serve(async (req) => {
-    const base44 = createClientFromRequest(req);
-    // Use base44.asServiceRole for privileged operations
-});
-```
+### API Layer (`src/api/`)
+- `supabaseClient.js` - Supabase client initialization
+- `entities/vehicles.js` - Vehicle CRUD operations
+- `entities/reviews.js` - Review CRUD operations
+- `entities/consultations.js` - Consultation form submissions with Slack/Google Sheets integration
+- `index.js` - Exports all APIs
 
 ### Data Fetching Pattern
 ```jsx
+import { vehiclesApi, reviewsApi } from '@/api';
+
 const { data: vehicles = [] } = useQuery({
     queryKey: ['vehicles'],
-    queryFn: () => base44.entities.Vehicle.list()
+    queryFn: () => vehiclesApi.list()
 });
 
-// With filtering
 const { data: reviews = [] } = useQuery({
-    queryKey: ['reviews'],
-    queryFn: () => base44.entities.Review.filter({ is_featured: true }, '-created_date', 3)
+    queryKey: ['featured-reviews'],
+    queryFn: () => reviewsApi.listFeatured(3)
 });
 ```
+
+### Consultation Submission Flow
+1. User submits form (ConsultationModal or CTASection)
+2. Data saved to Supabase `consultations` table
+3. Slack notification sent (async, non-blocking)
+4. Google Sheets row added (async, non-blocking)
+5. Meta Pixel Lead event fired
 
 ### Path Aliases
 `@/` maps to `src/` (e.g., `@/components`, `@/lib`, `@/api`)
 
 ## Key Dependencies
 
-- **@base44/sdk** - Backend client for entities, auth, integrations
+- **@supabase/supabase-js** - Database client
 - **@tanstack/react-query** - Data fetching/caching
 - **shadcn/ui** - UI components (configured in `components.json`, uses "new-york" style)
 - **framer-motion** - Animations
-- **react-hook-form + zod** - Form handling and validation
 - **lucide-react** - Icons
+
+## Database Schema (Supabase)
+
+### vehicles
+- `id` (UUID, PK)
+- `name`, `brand`, `trim`, `fuel_type`, `image_url`
+- `created_at`
+
+### reviews
+- `id` (UUID, PK)
+- `customer_name`, `customer_situation`, `rating`, `content`
+- `images` (text[]), `is_featured` (boolean)
+- `created_at`
+
+### consultations
+- `id` (UUID, PK)
+- `customer_name`, `phone`, `vehicle_name`
+- `preferred_method`, `message`, `status`
+- `created_at`
 
 ## ESLint Configuration
 
