@@ -48,13 +48,14 @@ async function sendSlackNotification(consultation) {
     method: 'POST',
     mode: 'no-cors',
     body: JSON.stringify({
-      text: '[민생카] 새로운 상담 요청',
+      text: '🤑 [민생카] 새로운 상담 요청',
       blocks: [
         {
           type: 'header',
           text: {
             type: 'plain_text',
-            text: '[민생카] 새로운 상담 요청이 접수되었습니다!'
+            text: '🤑 [민생카] 새로운 상담 요청이 접수되었습니다!',
+            emoji: true
           }
         },
         {
@@ -69,7 +70,13 @@ async function sendSlackNotification(consultation) {
         ...(consultation.message ? [{
           type: 'section',
           text: { type: 'mrkdwn', text: `*추가 요청:*\n${consultation.message}` }
-        }] : [])
+        }] : []),
+        {
+          type: 'context',
+          elements: [
+            { type: 'mrkdwn', text: '담당자: <@U0972DTPAPJ>' }
+          ]
+        }
       ]
     })
   });
