@@ -74,7 +74,17 @@ export default async function handler(req, res) {
       throw new Error(`토큰 발급 실패: ${tokenResponse.status} - ${errorData} (Vercel IP: ${vercelIP})`);
     }
 
-    const { token } = await tokenResponse.json();
+    const tokenText = await tokenResponse.text();
+    console.log('토큰 응답 원본:', tokenText);
+
+    let token;
+    try {
+      const tokenData = JSON.parse(tokenText);
+      token = tokenData.token;
+      console.log('✅ 토큰 발급 성공');
+    } catch (parseError) {
+      console.error('JSON 파싱 실패:', parseError);
+      throw new Error(`토큰 응답 JSON 파싱 실패: ${tokenText}`);
 
     // 2. SMS 발송
     const phoneNumber = to.replace(/-/g, '');
