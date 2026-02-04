@@ -26,6 +26,17 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'to와 message는 필수입니다' });
     }
 
+    // Vercel IP 확인
+    let vercelIP = 'unknown';
+    try {
+      const ipResponse = await fetch('https://api.ipify.org?format=json');
+      const ipData = await ipResponse.json();
+      vercelIP = ipData.ip;
+      console.log('🌐 Vercel Function IP:', vercelIP);
+    } catch (ipError) {
+      console.error('IP 확인 실패:', ipError);
+    }
+
     // 환경 변수 확인
     const account = process.env.PPURIO_ACCOUNT;
     const apiKey = process.env.PPURIO_API_KEY;
@@ -60,7 +71,7 @@ export default async function handler(req, res) {
       console.error('Status:', tokenResponse.status);
       console.error('Account:', account);
       console.error('API Key length:', apiKey?.length);
-      throw new Error(`토큰 발급 실패: ${tokenResponse.status} - ${errorData}`);
+      throw new Error(`토큰 발급 실패: ${tokenResponse.status} - ${errorData} (Vercel IP: ${vercelIP})`);
     }
 
     const { token } = await tokenResponse.json();
