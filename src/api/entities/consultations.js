@@ -2,7 +2,6 @@ import { supabase } from '../supabaseClient';
 
 const SLACK_WEBHOOK_URL = import.meta.env.VITE_SLACK_WEBHOOK_URL;
 const GOOGLE_SHEET_WEBHOOK_URL = import.meta.env.VITE_GOOGLE_SHEET_WEBHOOK_URL;
-const FARADAY_API_URL = import.meta.env.VITE_FARADAY_API_URL;
 
 export const consultationsApi = {
   async create(data) {
@@ -24,9 +23,9 @@ export const consultationsApi = {
       throw error;
     }
 
-    // Faraday SMS 시스템 전송 (실패해도 상담 신청은 성공으로 처리)
-    sendToFaradaySMS(consultationData).catch((err) => {
-      console.error('SMS 시스템 전송 실패:', err);
+    // 뿌리오 SMS 발송 (Vercel Function 사용)
+    sendSMS(consultationData).catch((err) => {
+      console.error('SMS 발송 실패:', err);
     });
 
     // Slack 알림 전송 (실패해도 상담 신청은 성공으로 처리)
@@ -107,20 +106,31 @@ async function sendToGoogleSheet(consultation) {
   });
 }
 
-async function sendToFaradaySMS(consultation) {
-  if (!FARADAY_API_URL) return;
+// 뿌리오 SMS 발송 (Vercel Serverless Function)
+async function sendSMS(consultation) {
   try {
-    await fetch(`${FARADAY_API_URL}/api/customers/from-landing`, {
+    const message = `안녕하세요 ${consultation.customer_name}님! 민생카입니다. 문의 주셔서 감사합니다. 곧 연락드리겠습니다!`;
+
+    const response = await fetch('/api/sendSMS', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        name: consultation.customer_name,
-        phone: consultation.phone,
-        notes: `차량: ${consultation.vehicle_name || '미정'}, 방식: ${consultation.preferred_method}`
+        to: consultation.phone,
+        message: message,
+        customerName: consultation.customer_name
       })
     });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'SMS 발송 실패');
+    }
+
+    const result = await response.json();
+    console.log('✅ SMS 발송 성공:', result);
+    return result;
   } catch (error) {
-    console.error('SMS 시스템 전송 실패:', error);
+    console.error('❌ SMS 발송 실패:', error);
     throw error;
   }
 }

@@ -1,0 +1,114 @@
+// Vercel Serverless Function - 뿌리오 SMS 발송
+// https://minsangcar.vercel.app/api/sendSMS
+
+import crypto from 'crypto';
+
+const PPURIO_API_URL = 'https://message.ppurio.com';
+
+export default async function handler(req, res) {
+  // CORS 설정
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const { to, message, customerName } = req.body;
+
+    if (!to || !message) {
+      return res.status(400).json({ error: 'to와 message는 필수입니다' });
+    }
+
+    // 환경 변수 확인
+    const account = process.env.PPURIO_ACCOUNT;
+    const apiKey = process.env.PPURIO_API_KEY;
+    const from = process.env.PPURIO_FROM;
+
+    if (!account || !apiKey || !from) {
+      console.error('뿌리오 환경 변수가 설정되지 않았습니다');
+      return res.status(500).json({
+        error: '서버 설정 오류',
+        mock: true
+      });
+    }
+
+    // 1. 뿌리오 토큰 발급
+    const credentials = `${account}:${apiKey}`;
+    const auth = Buffer.from(credentials).toString('base64');
+
+    const tokenResponse = await fetch(`${PPURIO_API_URL}/v1/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Basic ${auth}`,
+      },
+    });
+
+    if (!tokenResponse.ok) {
+      const errorData = await tokenResponse.text();
+      console.error('토큰 발급 실패:', errorData);
+      throw new Error('토큰 발급 실패');
+    }
+
+    const { token } = await tokenResponse.json();
+
+    // 2. SMS 발송
+    const phoneNumber = to.replace(/-/g, '');
+    const refKey = crypto.randomBytes(16).toString('hex');
+
+    const smsPayload = {
+      account,
+      messageType: 'SMS',
+      from,
+      content: message,
+      duplicateFlag: 'Y',
+      targetCount: 1,
+      targets: [{ to: phoneNumber }],
+      refKey,
+    };
+
+    const smsResponse = await fetch(`${PPURIO_API_URL}/v1/message`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(smsPayload),
+    });
+
+    if (!smsResponse.ok) {
+      const errorData = await smsResponse.json();
+      console.error('SMS 발송 실패:', errorData);
+      throw new Error(`SMS 발송 실패: ${errorData.description || 'Unknown error'}`);
+    }
+
+    const result = await smsResponse.json();
+
+    console.log(`✅ SMS 발송 성공: ${customerName} (${to})`);
+
+    return res.status(200).json({
+      success: true,
+      to,
+      message,
+      customerName,
+      messageKey: result.messageKey,
+      refKey,
+      timestamp: new Date().toISOString(),
+    });
+
+  } catch (error) {
+    console.error('SMS 발송 에러:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+}
