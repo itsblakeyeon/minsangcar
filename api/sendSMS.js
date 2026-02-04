@@ -1,11 +1,11 @@
 // Vercel Serverless Function - 뿌리오 SMS 발송
 // https://minsangcar.vercel.app/api/sendSMS
 
-import crypto from 'crypto';
+const crypto = require('crypto');
 
 const PPURIO_API_URL = 'https://message.ppurio.com';
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // CORS 설정
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -33,6 +33,9 @@ export default async function handler(req, res) {
 
     if (!account || !apiKey || !from) {
       console.error('뿌리오 환경 변수가 설정되지 않았습니다');
+      console.error('account:', account ? 'OK' : 'MISSING');
+      console.error('apiKey:', apiKey ? 'OK' : 'MISSING');
+      console.error('from:', from ? 'OK' : 'MISSING');
       return res.status(500).json({
         error: '서버 설정 오류',
         mock: true
@@ -111,4 +114,4 @@ export default async function handler(req, res) {
       timestamp: new Date().toISOString(),
     });
   }
-}
+};
