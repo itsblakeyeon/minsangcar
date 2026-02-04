@@ -30,7 +30,6 @@ export default function Layout({ children, currentPageName }) {
 
     const tabs = [
         { label: '고객후기', path: createPageUrl('Reviews') },
-        { label: '신차장기렌트', path: createPageUrl('Home') + '#vehicles' },
         { label: '진행과정', path: createPageUrl('Home') + '#process' }
     ];
 
