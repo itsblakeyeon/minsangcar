@@ -1,11 +1,11 @@
 // Vercel Serverless Function - 뿌리오 SMS 발송
 // https://minsangcar.vercel.app/api/sendSMS
 
-const crypto = require('crypto');
+import crypto from 'crypto';
 
 const PPURIO_API_URL = 'https://message.ppurio.com';
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   // CORS 설정
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -114,4 +114,4 @@ module.exports = async function handler(req, res) {
       timestamp: new Date().toISOString(),
     });
   }
-};
+}
