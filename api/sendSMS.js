@@ -1,9 +1,9 @@
-// Vercel Serverless Function - 뿌리오 SMS 발송
+// Vercel Serverless Function - CoolSMS 발송
 // https://minsangcar.vercel.app/api/sendSMS
 
 import crypto from 'crypto';
 
-const PPURIO_API_URL = 'https://message.ppurio.com';
+const COOLSMS_API_URL = 'https://api.coolsms.co.kr';
 
 export default async function handler(req, res) {
   // CORS 설정
@@ -26,26 +26,15 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'to와 message는 필수입니다' });
     }
 
-    // Vercel IP 확인
-    let vercelIP = 'unknown';
-    try {
-      const ipResponse = await fetch('https://api.ipify.org?format=json');
-      const ipData = await ipResponse.json();
-      vercelIP = ipData.ip;
-      console.log('🌐 Vercel Function IP:', vercelIP);
-    } catch (ipError) {
-      console.error('IP 확인 실패:', ipError);
-    }
-
     // 환경 변수 확인
-    const account = process.env.PPURIO_ACCOUNT;
-    const apiKey = process.env.PPURIO_API_KEY;
-    const from = process.env.PPURIO_FROM;
+    const apiKey = process.env.COOLSMS_API_KEY;
+    const apiSecret = process.env.COOLSMS_API_SECRET;
+    const from = process.env.COOLSMS_FROM;
 
-    if (!account || !apiKey || !from) {
-      console.error('뿌리오 환경 변수가 설정되지 않았습니다');
-      console.error('account:', account ? 'OK' : 'MISSING');
+    if (!apiKey || !apiSecret || !from) {
+      console.error('CoolSMS 환경 변수가 설정되지 않았습니다');
       console.error('apiKey:', apiKey ? 'OK' : 'MISSING');
+      console.error('apiSecret:', apiSecret ? 'OK' : 'MISSING');
       console.error('from:', from ? 'OK' : 'MISSING');
       return res.status(500).json({
         error: '서버 설정 오류',
@@ -53,78 +42,50 @@ export default async function handler(req, res) {
       });
     }
 
-    // 1. 뿌리오 토큰 발급
-    const credentials = `${account}:${apiKey}`;
-    const auth = Buffer.from(credentials).toString('base64');
+    // CoolSMS 인증 정보 생성
+    const timestamp = Date.now().toString();
+    const salt = crypto.randomBytes(32).toString('hex');
+    const signature = crypto
+      .createHmac('sha256', apiSecret)
+      .update(timestamp + salt)
+      .digest('hex');
 
-    const tokenResponse = await fetch(`${PPURIO_API_URL}/v1/token`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Basic ${auth}`,
-      },
-    });
-
-    if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.text();
-      console.error('토큰 발급 실패:', errorData);
-      console.error('Status:', tokenResponse.status);
-      console.error('Account:', account);
-      console.error('API Key length:', apiKey?.length);
-      throw new Error(`토큰 발급 실패: ${tokenResponse.status} - ${errorData} (Vercel IP: ${vercelIP})`);
-    }
-
-    const tokenText = await tokenResponse.text();
-    console.log('토큰 응답 원본:', tokenText);
-
-    let token;
-    try {
-      const tokenData = JSON.parse(tokenText);
-      token = tokenData.token;
-      console.log('✅ 토큰 발급 성공');
-    } catch (parseError) {
-      console.error('JSON 파싱 실패:', parseError);
-      throw new Error(`토큰 응답 JSON 파싱 실패: ${tokenText}`);
-    }
-
-    // 2. SMS 발송
+    // SMS 발송
     const phoneNumber = to.replace(/-/g, '');
-    const refKey = crypto.randomBytes(16).toString('hex');
 
     const smsPayload = {
-      account,
-      messageType: 'SMS',
-      from,
-      content: message,
-      duplicateFlag: 'Y',
-      targetCount: 1,
-      targets: [{ to: phoneNumber }],
-      refKey,
+      message: {
+        to: phoneNumber,
+        from: from,
+        text: message
+      }
     };
 
-    const smsResponse = await fetch(`${PPURIO_API_URL}/v1/message`, {
+    console.log('📱 CoolSMS 발송 시도:', { to: phoneNumber, from });
+
+    const response = await fetch(`${COOLSMS_API_URL}/messages/v4/send`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `HMAC-SHA256 apiKey=${apiKey}, date=${timestamp}, salt=${salt}, signature=${signature}`
       },
-      body: JSON.stringify(smsPayload),
+      body: JSON.stringify(smsPayload)
     });
 
-    const smsText = await smsResponse.text();
-    console.log('SMS 응답 원본:', smsText);
+    const responseText = await response.text();
+    console.log('CoolSMS 응답:', responseText);
 
     let result;
     try {
-      result = JSON.parse(smsText);
+      result = JSON.parse(responseText);
     } catch (parseError) {
-      console.error('SMS 응답 JSON 파싱 실패:', parseError);
-      throw new Error(`SMS 응답 JSON 파싱 실패: ${smsText}`);
+      console.error('JSON 파싱 실패:', parseError);
+      throw new Error(`응답 파싱 실패: ${responseText}`);
     }
 
-    if (!smsResponse.ok) {
+    if (!response.ok) {
       console.error('SMS 발송 실패:', result);
-      throw new Error(`SMS 발송 실패: ${result.description || 'Unknown error'}`);
+      throw new Error(`SMS 발송 실패: ${result.errorMessage || result.message || 'Unknown error'}`);
     }
 
     console.log(`✅ SMS 발송 성공: ${customerName} (${to})`);
@@ -134,9 +95,8 @@ export default async function handler(req, res) {
       to,
       message,
       customerName,
-      messageKey: result.messageKey,
-      refKey,
-      timestamp: new Date().toISOString(),
+      messageId: result.groupId,
+      timestamp: new Date().toISOString()
     });
 
   } catch (error) {
@@ -144,7 +104,7 @@ export default async function handler(req, res) {
     return res.status(500).json({
       success: false,
       error: error.message,
-      timestamp: new Date().toISOString(),
+      timestamp: new Date().toISOString()
     });
   }
 }

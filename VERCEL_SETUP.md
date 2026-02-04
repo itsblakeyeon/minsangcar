@@ -1,70 +1,91 @@
-# Vercel 환경 변수 설정 가이드
+# Vercel 환경 변수 설정 가이드 (CoolSMS)
 
 ## 🎯 목적
 
-민생카 리드 제출 시 자동으로 SMS를 발송하기 위해 Vercel에 뿌리오 API 환경 변수를 설정합니다.
+민생카 리드 제출 시 자동으로 SMS를 발송하기 위해 Vercel에 CoolSMS API 환경 변수를 설정합니다.
 
 ---
 
-## 📋 필요한 환경 변수
+## 📋 CoolSMS 설정
+
+### 1단계: CoolSMS 계정 준비
+
+1. https://coolsms.co.kr 회원가입
+2. 대시보드 로그인
+3. **설정 > API Key 관리**에서 다음 정보 확인:
+   - API Key
+   - API Secret
+4. **발신번호 관리**에서 발신번호 등록 (01035203234)
+
+---
+
+## 🔧 Vercel 환경 변수 설정
+
+### 필요한 환경 변수
 
 ```env
-PPURIO_ACCOUNT=whitecube
-PPURIO_API_KEY=1a968d318fecb5ce729fddf022448b20748f3f91b8e861bf4eb3235a8440916d
-PPURIO_FROM=01035203234
+COOLSMS_API_KEY=your_api_key_here
+COOLSMS_API_SECRET=your_api_secret_here
+COOLSMS_FROM=01035203234
 ```
 
----
-
-## 🔧 설정 방법
-
-### 1단계: Vercel 대시보드 접속
+### 설정 방법
 
 1. https://vercel.com/dashboard 접속
 2. **minsangcar** 프로젝트 선택
-
-### 2단계: 환경 변수 추가
-
-1. **Settings** 탭 클릭
-2. 왼쪽 메뉴에서 **Environment Variables** 클릭
-3. 다음 3개 변수를 하나씩 추가:
+3. **Settings** → **Environment Variables**
+4. 다음 3개 변수 추가:
 
 #### Variable 1
 ```
-Name: PPURIO_ACCOUNT
-Value: whitecube
+Name: COOLSMS_API_KEY
+Value: [CoolSMS 대시보드에서 확인한 API Key]
 Environment: Production, Preview, Development (모두 체크)
 ```
 
 #### Variable 2
 ```
-Name: PPURIO_API_KEY
-Value: 1a968d318fecb5ce729fddf022448b20748f3f91b8e861bf4eb3235a8440916d
+Name: COOLSMS_API_SECRET
+Value: [CoolSMS 대시보드에서 확인한 API Secret]
 Environment: Production, Preview, Development (모두 체크)
 ```
 
 #### Variable 3
 ```
-Name: PPURIO_FROM
+Name: COOLSMS_FROM
 Value: 01035203234
 Environment: Production, Preview, Development (모두 체크)
 ```
 
-### 3단계: 재배포
+### 재배포
 
 환경 변수 추가 후:
 1. **Deployments** 탭으로 이동
 2. 최신 배포를 **Redeploy** (재배포)
-   - 또는 코드를 push하면 자동 배포됨
 
 ---
 
-## ✅ 확인 방법
+## ✅ 테스트 방법
 
 재배포 완료 후:
-1. https://minsangcar.vercel.app 접속
-2. 상담 신청 폼 작성
-3. 제출 후 SMS 수신 확인
+
+```bash
+curl -X POST https://minsangcar.vercel.app/api/sendSMS \
+  -H "Content-Type: application/json" \
+  -d '{"to":"010-3520-3234","message":"테스트 메시지","customerName":"테스트"}'
+```
+
+성공 응답:
+```json
+{
+  "success": true,
+  "to": "010-3520-3234",
+  "message": "테스트 메시지",
+  "customerName": "테스트",
+  "messageId": "...",
+  "timestamp": "..."
+}
+```
 
 ---
 
@@ -78,7 +99,7 @@ Supabase에 저장 ✅
 3가지 동시 실행:
 ├─ 💬 Slack 알림
 ├─ 📊 Google Sheets 기록
-└─ 📱 SMS 발송 (Vercel Function → 뿌리오 API)
+└─ 📱 SMS 발송 (Vercel Function → CoolSMS API)
     ↓
 완료! ✅
 ```
@@ -97,8 +118,20 @@ Supabase에 저장 ✅
    - Settings → Environment Variables
    - 3개 변수가 모두 설정되어 있는지 확인
 
-3. **재배포**
+3. **CoolSMS 크레딧 확인**
+   - CoolSMS 대시보드에서 잔액 확인
+   - 발신번호가 승인되었는지 확인
+
+4. **재배포**
    - 환경 변수 변경 후 반드시 재배포 필요
+
+---
+
+## 💰 CoolSMS 요금
+
+- SMS(단문): 건당 약 9~15원
+- LMS(장문): 건당 약 30~50원
+- 선불 충전 방식
 
 ---
 
@@ -117,3 +150,11 @@ Supabase에 저장 ✅
 ## 🎉 완료!
 
 설정이 완료되면 리드 제출 시 자동으로 SMS가 발송됩니다!
+
+## ⚡ CoolSMS 장점
+
+- ✅ IP 제한 없음 (뿌리오와 다르게!)
+- ✅ 간단한 REST API
+- ✅ 좋은 문서화
+- ✅ 안정적인 서비스
+- ✅ 합리적인 가격
