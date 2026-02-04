@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>대화 내역 - Faraday SMS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+  <!-- Navigation -->
+  <nav class="bg-indigo-600 text-white shadow-lg">
+    <div class="max-w-7xl mx-auto px-4">
+      <div class="flex justify-between items-center h-16">
+        <h1 class="text-xl font-bold">Faraday SMS</h1>
+        <div class="flex space-x-4">
+          <a href="customers.html" class="px-3 py-2 rounded hover:bg-indigo-500">고객 목록</a>
+          <a href="conversations.html" class="px-3 py-2 rounded bg-indigo-700">대화 내역</a>
+          <a href="send.html" class="px-3 py-2 rounded hover:bg-indigo-500">SMS 발송</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto px-4 py-8">
+    <div class="grid grid-cols-3 gap-6">
+      <!-- Customer List -->
+      <div class="bg-white rounded-lg shadow p-4">
+        <h2 class="text-lg font-bold text-gray-800 mb-4">고객 선택</h2>
+        <input type="text" id="searchInput" placeholder="이름 또는 번호 검색..."
+          class="w-full border rounded px-3 py-2 mb-4 text-sm">
+        <div id="customerList" class="space-y-2 max-h-[600px] overflow-y-auto">
+          <!-- Customer list loaded here -->
+        </div>
+      </div>
+
+      <!-- Conversation -->
+      <div class="col-span-2 bg-white rounded-lg shadow">
+        <div id="conversationHeader" class="border-b p-4">
+          <h2 class="text-lg font-bold text-gray-800">대화 내역</h2>
+          <p class="text-sm text-gray-500">고객을 선택해주세요</p>
+        </div>
+        <div id="conversationBody" class="p-4 h-[500px] overflow-y-auto bg-gray-50">
+          <p class="text-center text-gray-400 mt-20">고객을 선택하면 대화 내역이 표시됩니다.</p>
+        </div>
+        <div id="replySection" class="border-t p-4 hidden">
+          <div class="flex space-x-2">
+            <input type="text" id="replyInput" placeholder="메시지를 입력하세요..."
+              class="flex-1 border rounded px-3 py-2">
+            <button onclick="sendReply()" class="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700">
+              발송
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const API_BASE = '/api';
+    let customers = [];
+    let selectedCustomer = null;
+
+    async function loadCustomers() {
+      try {
+        const res = await fetch(`${API_BASE}/customers`);
+        customers = await res.json();
+        renderCustomerList();
+
+        // Check URL params
+        const params = new URLSearchParams(window.location.search);
+        const id = params.get('id');
+        if (id) {
+          selectCustomer(parseInt(id));
+        }
+      } catch (err) {
+        console.error('Error:', err);
+      }
+    }
+
+    function renderCustomerList() {
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const filtered = customers.filter(c =>
+        c.name.toLowerCase().includes(search) || c.phone.includes(search)
+      );
+
+      document.getElementById('customerList').innerHTML = filtered.map(c => `
+        <div onclick="selectCustomer(${c.id})"
+          class="p-3 rounded cursor-pointer border hover:bg-indigo-50 ${selectedCustomer?.id === c.id ? 'bg-indigo-100 border-indigo-500' : 'border-gray-200'}">
+          <p class="font-medium text-gray-800">${c.name}</p>
+          <p class="text-sm text-gray-500">${c.phone}</p>
+        </div>
+      `).join('');
+    }
+
+    async function selectCustomer(id) {
+      selectedCustomer = customers.find(c => c.id === id);
+      renderCustomerList();
+
+      document.getElementById('conversationHeader').innerHTML = `
+        <h2 class="text-lg font-bold text-gray-800">${selectedCustomer.name}</h2>
+        <p class="text-sm text-gray-500">${selectedCustomer.phone}</p>
+      `;
+
+      document.getElementById('replySection').classList.remove('hidden');
+
+      try {
+        const res = await fetch(`${API_BASE}/sms/conversations/${id}`);
+        const data = await res.json();
+        renderConversation(data.conversations || []);
+      } catch (err) {
+        console.error('Error:', err);
+        document.getElementById('conversationBody').innerHTML = `
+          <p class="text-center text-gray-400 mt-20">대화 내역이 없습니다.</p>
+        `;
+      }
+    }
+
+    function renderConversation(conversations) {
+      if (conversations.length === 0) {
+        document.getElementById('conversationBody').innerHTML = `
+          <p class="text-center text-gray-400 mt-20">대화 내역이 없습니다.</p>
+        `;
+        return;
+      }
+
+      document.getElementById('conversationBody').innerHTML = conversations.map(msg => `
+        <div class="mb-4 ${msg.sender === 'customer' ? 'text-left' : 'text-right'}">
+          <div class="inline-block max-w-[70%] ${msg.sender === 'customer' ? 'bg-white' : 'bg-indigo-600 text-white'} rounded-lg px-4 py-2 shadow">
+            <p class="text-sm">${msg.message}</p>
+          </div>
+          <p class="text-xs text-gray-400 mt-1">
+            ${msg.sender === 'customer' ? '고객' : 'AI'} · ${new Date(msg.created_at).toLocaleString('ko-KR')}
+          </p>
+        </div>
+      `).join('');
+
+      // Scroll to bottom
+      const body = document.getElementById('conversationBody');
+      body.scrollTop = body.scrollHeight;
+    }
+
+    async function sendReply() {
+      const input = document.getElementById('replyInput');
+      const message = input.value.trim();
+
+      if (!message || !selectedCustomer) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/sms/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: selectedCustomer.phone,
+            message: message
+          })
+        });
+
+        const result = await res.json();
+        if (result.success) {
+          input.value = '';
+          alert('발송 완료!');
+          selectCustomer(selectedCustomer.id); // Reload conversation
+        } else {
+          alert('발송 실패: ' + (result.error || 'Unknown error'));
+        }
+      } catch (err) {
+        console.error('Error:', err);
+        alert('발송 실패');
+      }
+    }
+
+    document.getElementById('searchInput').addEventListener('input', renderCustomerList);
+    document.getElementById('replyInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') sendReply();
+    });
+
+    loadCustomers();
+  </script>
+</body>
+</html>
