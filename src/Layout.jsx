@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Phone } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
+import { useLocation } from 'react-router-dom';
+import ConsultationModal from '@/components/landing/ConsultationModal';
 
 export default function Layout({ children, currentPageName }) {
     const [isScrolled, setIsScrolled] = useState(false);
+    const [isModalOpen, setIsModalOpen] = useState(false);
     const location = useLocation();
 
     useEffect(() => {
@@ -28,25 +29,8 @@ export default function Layout({ children, currentPageName }) {
         return () => window.removeEventListener('scroll', handleScroll);
     }, [location]);
 
-    const tabs = [
-        { label: '고객후기', path: createPageUrl('Reviews') },
-        { label: '진행과정', path: createPageUrl('Home') + '#process' }
-    ];
-
-    const isActive = (path) => {
-        const currentPath = location.pathname;
-        const targetUrl = new URL(path, window.location.origin);
-        const targetPath = targetUrl.pathname;
-
-        if (targetPath === '/Home' || targetPath === '/') {
-            return currentPath === '/' || currentPath === '/Home';
-        }
-
-        return currentPath === targetPath;
-    };
-
     return (
-        <div className="min-h-screen bg-white">
+        <div className="min-h-screen bg-white pb-24">
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap');
                 :root {
@@ -81,27 +65,27 @@ export default function Layout({ children, currentPageName }) {
                         </a>
                     </div>
                 </div>
-
-                {/* Navigation Tabs */}
-                <div className="border-t border-slate-200 bg-white">
-                    <div className="max-w-6xl mx-auto px-6 flex gap-8">
-                        {tabs.map((tab) => (
-                            <Link
-                                key={tab.label}
-                                to={tab.path}
-                                className={`py-3 text-sm font-medium transition-colors border-b-2 ${isActive(tab.path)
-                                    ? 'border-[#4880EE] text-[#4880EE]'
-                                    : 'border-transparent text-slate-600 hover:text-slate-900'
-                                    }`}
-                            >
-                                {tab.label}
-                            </Link>
-                        ))}
-                    </div>
-                </div>
             </header>
 
             {children}
+
+            {/* Fixed Bottom CTA Button */}
+            <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 shadow-lg">
+                <div className="max-w-6xl mx-auto px-6 py-4">
+                    <button
+                        onClick={() => setIsModalOpen(true)}
+                        className="w-full bg-[#4880EE] hover:bg-[#3366CC] text-white font-bold py-4 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                        <span className="text-lg">무심사 테슬라 문의</span>
+                    </button>
+                </div>
+            </div>
+
+            {/* Consultation Modal */}
+            <ConsultationModal
+                open={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+            />
         </div>
     );
 }
