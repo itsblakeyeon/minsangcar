@@ -111,13 +111,21 @@ export default async function handler(req, res) {
       body: JSON.stringify(smsPayload),
     });
 
-    if (!smsResponse.ok) {
-      const errorData = await smsResponse.json();
-      console.error('SMS 발송 실패:', errorData);
-      throw new Error(`SMS 발송 실패: ${errorData.description || 'Unknown error'}`);
+    const smsText = await smsResponse.text();
+    console.log('SMS 응답 원본:', smsText);
+
+    let result;
+    try {
+      result = JSON.parse(smsText);
+    } catch (parseError) {
+      console.error('SMS 응답 JSON 파싱 실패:', parseError);
+      throw new Error(`SMS 응답 JSON 파싱 실패: ${smsText}`);
     }
 
-    const result = await smsResponse.json();
+    if (!smsResponse.ok) {
+      console.error('SMS 발송 실패:', result);
+      throw new Error(`SMS 발송 실패: ${result.description || 'Unknown error'}`);
+    }
 
     console.log(`✅ SMS 발송 성공: ${customerName} (${to})`);
 
