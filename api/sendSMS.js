@@ -57,7 +57,10 @@ export default async function handler(req, res) {
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.text();
       console.error('토큰 발급 실패:', errorData);
-      throw new Error('토큰 발급 실패');
+      console.error('Status:', tokenResponse.status);
+      console.error('Account:', account);
+      console.error('API Key length:', apiKey?.length);
+      throw new Error(`토큰 발급 실패: ${tokenResponse.status} - ${errorData}`);
     }
 
     const { token } = await tokenResponse.json();
