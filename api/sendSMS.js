@@ -85,6 +85,7 @@ export default async function handler(req, res) {
     } catch (parseError) {
       console.error('JSON 파싱 실패:', parseError);
       throw new Error(`토큰 응답 JSON 파싱 실패: ${tokenText}`);
+    }
 
     // 2. SMS 발송
     const phoneNumber = to.replace(/-/g, '');
