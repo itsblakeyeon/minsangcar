@@ -5,6 +5,7 @@ export const vehiclesApi = {
     const { data, error } = await supabase
       .from('vehicles')
       .select('*')
+      .ilike('brand', '%테슬라%')
       .order('created_at', { ascending: true });
 
     if (error) {
