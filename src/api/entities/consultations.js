@@ -2,6 +2,7 @@ import { supabase } from '../supabaseClient';
 
 const SLACK_WEBHOOK_URL = import.meta.env.VITE_SLACK_WEBHOOK_URL;
 const GOOGLE_SHEET_WEBHOOK_URL = import.meta.env.VITE_GOOGLE_SHEET_WEBHOOK_URL;
+const FARADAY_API_URL = import.meta.env.VITE_FARADAY_API_URL;
 
 export const consultationsApi = {
   async create(data) {
@@ -22,6 +23,11 @@ export const consultationsApi = {
       console.error('상담 신청 실패:', error);
       throw error;
     }
+
+    // Faraday SMS 시스템 전송 (실패해도 상담 신청은 성공으로 처리)
+    sendToFaradaySMS(consultationData).catch((err) => {
+      console.error('SMS 시스템 전송 실패:', err);
+    });
 
     // Slack 알림 전송 (실패해도 상담 신청은 성공으로 처리)
     if (SLACK_WEBHOOK_URL) {
@@ -99,4 +105,22 @@ async function sendToGoogleSheet(consultation) {
       message: consultation.message || ''
     })
   });
+}
+
+async function sendToFaradaySMS(consultation) {
+  if (!FARADAY_API_URL) return;
+  try {
+    await fetch(`${FARADAY_API_URL}/api/customers/from-landing`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: consultation.customer_name,
+        phone: consultation.phone,
+        notes: `차량: ${consultation.vehicle_name || '미정'}, 방식: ${consultation.preferred_method}`
+      })
+    });
+  } catch (error) {
+    console.error('SMS 시스템 전송 실패:', error);
+    throw error;
+  }
 }
