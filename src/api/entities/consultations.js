@@ -5,14 +5,20 @@ const GOOGLE_SHEET_WEBHOOK_URL = import.meta.env.VITE_GOOGLE_SHEET_WEBHOOK_URL;
 
 export const consultationsApi = {
   async create(data) {
+    // Supabase에 저장할 데이터 (기존 컬럼만)
     const consultationData = {
       customer_name: data.customer_name,
       phone: data.phone,
       vehicle_name: data.vehicle_name || null,
-      timeline: data.timeline || null,
-      monthly_budget: data.monthly_budget || null,
       message: data.message || null,
       status: data.status || '대기중'
+    };
+
+    // Slack/Google Sheets용 전체 데이터 (새 필드 포함)
+    const fullData = {
+      ...consultationData,
+      timeline: data.timeline || null,
+      monthly_budget: data.monthly_budget || null
     };
 
     const { error } = await supabase
@@ -24,26 +30,26 @@ export const consultationsApi = {
       throw error;
     }
 
-    // 뿌리오 SMS 발송 (Vercel Function 사용)
-    sendSMS(consultationData).catch((err) => {
+    // SMS 발송 (Vercel Function 사용)
+    sendSMS(fullData).catch((err) => {
       console.error('SMS 발송 실패:', err);
     });
 
     // Slack 알림 전송 (실패해도 상담 신청은 성공으로 처리)
     if (SLACK_WEBHOOK_URL) {
-      sendSlackNotification(consultationData).catch((err) => {
+      sendSlackNotification(fullData).catch((err) => {
         console.error('Slack 알림 전송 실패:', err);
       });
     }
 
     // Google Sheets 전송 (실패해도 상담 신청은 성공으로 처리)
     if (GOOGLE_SHEET_WEBHOOK_URL) {
-      sendToGoogleSheet(consultationData).catch((err) => {
+      sendToGoogleSheet(fullData).catch((err) => {
         console.error('Google Sheets 전송 실패:', err);
       });
     }
 
-    return consultationData;
+    return fullData;
   }
 };
 
