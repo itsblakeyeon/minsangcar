@@ -124,8 +124,8 @@ async function sendSMS(consultation) {
       body: JSON.stringify({
         to: consultation.phone,
         message: message,
-        customerName: consultation.customer_name
-        // imageUrl: 'https://minsangcar.vercel.app/minsangcar-logo.jpg' // MMS는 나중에 추가
+        customerName: consultation.customer_name,
+        imageUrl: 'https://minsangcar.vercel.app/minsangcar-logo.jpg' // MMS 이미지
       })
     });
 
