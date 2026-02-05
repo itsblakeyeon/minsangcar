@@ -2,8 +2,15 @@
 // https://minsangcar.vercel.app/api/sendSMS
 
 import crypto from 'crypto';
+import { createClient } from '@supabase/supabase-js';
 
 const COOLSMS_API_URL = 'https://api.coolsms.co.kr';
+
+// Supabase 클라이언트 초기화
+const supabase = createClient(
+  process.env.VITE_SUPABASE_URL || '',
+  process.env.VITE_SUPABASE_ANON_KEY || ''
+);
 
 export default async function handler(req, res) {
   // CORS 설정
@@ -90,6 +97,17 @@ export default async function handler(req, res) {
 
     console.log(`✅ SMS 발송 성공: ${customerName} (${to})`);
 
+    // Supabase에 SMS 로그 저장
+    await supabase.from('sms_logs').insert({
+      recipient: to,
+      message: message,
+      status: 'sent',
+      customer_name: customerName
+    }).catch(err => {
+      console.error('SMS 로그 저장 실패:', err);
+      // 로그 저장 실패해도 SMS는 성공으로 처리
+    });
+
     return res.status(200).json({
       success: true,
       to,
@@ -101,6 +119,20 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('SMS 발송 에러:', error);
+
+    // 실패한 SMS도 로그에 저장
+    const { to, message, customerName } = req.body;
+    if (to && message) {
+      await supabase.from('sms_logs').insert({
+        recipient: to,
+        message: message,
+        status: 'failed',
+        customer_name: customerName
+      }).catch(err => {
+        console.error('실패 SMS 로그 저장 실패:', err);
+      });
+    }
+
     return res.status(500).json({
       success: false,
       error: error.message,
