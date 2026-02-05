@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { consultationsApi } from '@/api';
-import { Loader2, CheckCircle, Car, Phone, User } from 'lucide-react';
+import { Loader2, CheckCircle, Car, Phone, User, Calendar, DollarSign } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const useMediaQuery = (query) => {
@@ -98,33 +98,46 @@ const ModalContent = ({ isSuccess, isSubmitting, formData, setFormData, handleSu
                     </div>
                     
                     <div className="space-y-2">
-                        <Label className="text-slate-700">희망 상담 방식</Label>
-                        <Tabs 
-                            value={formData.preferred_method} 
-                            onValueChange={(value) => setFormData({...formData, preferred_method: value})}
+                        <Label className="text-slate-700">차량 필요 시기</Label>
+                        <Tabs
+                            value={formData.timeline}
+                            onValueChange={(value) => setFormData({...formData, timeline: value})}
                             className="w-full"
                         >
                             <TabsList className="grid w-full grid-cols-3 bg-slate-100 h-12">
-                                <TabsTrigger 
-                                    value="문자"
-                                    className="data-[state=active]:bg-[#4880EE] data-[state=active]:text-white h-full"
+                                <TabsTrigger
+                                    value="최대한 빨리"
+                                    className="data-[state=active]:bg-[#4880EE] data-[state=active]:text-white h-full text-xs sm:text-sm"
                                 >
-                                    문자
+                                    최대한 빨리
                                 </TabsTrigger>
-                                <TabsTrigger 
-                                    value="전화"
-                                    className="data-[state=active]:bg-[#4880EE] data-[state=active]:text-white h-full"
+                                <TabsTrigger
+                                    value="1~2개월 내"
+                                    className="data-[state=active]:bg-[#4880EE] data-[state=active]:text-white h-full text-xs sm:text-sm"
                                 >
-                                    전화
+                                    1~2개월 내
                                 </TabsTrigger>
-                                <TabsTrigger 
-                                    value="상관없음"
-                                    className="data-[state=active]:bg-[#4880EE] data-[state=active]:text-white h-full"
+                                <TabsTrigger
+                                    value="늦어도 상관없음"
+                                    className="data-[state=active]:bg-[#4880EE] data-[state=active]:text-white h-full text-xs sm:text-sm"
                                 >
-                                    상관없음
+                                    늦어도 상관없음
                                 </TabsTrigger>
                             </TabsList>
                         </Tabs>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label className="text-slate-700">매월 얼마까지 낼 수 있나요?</Label>
+                        <div className="relative">
+                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <Input
+                                placeholder="예: 50만원"
+                                value={formData.monthly_budget}
+                                onChange={(e) => setFormData({...formData, monthly_budget: e.target.value})}
+                                className="pl-10 bg-white text-slate-900 placeholder:text-slate-400 focus:border-[#4880EE] focus:ring-[#4880EE] border-slate-200"
+                            />
+                        </div>
                     </div>
                     
                     <div className="space-y-2">
@@ -163,7 +176,8 @@ export default function ConsultationModal({ open, onClose, vehicle }) {
     const [formData, setFormData] = useState({
         customer_name: '',
         phone: '',
-        preferred_method: '상관없음',
+        timeline: '최대한 빨리',
+        monthly_budget: '',
         message: ''
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -216,7 +230,8 @@ export default function ConsultationModal({ open, onClose, vehicle }) {
                 setFormData({
                     customer_name: '',
                     phone: '',
-                    preferred_method: '상관없음',
+                    timeline: '최대한 빨리',
+                    monthly_budget: '',
                     message: ''
                 });
                 onClose();

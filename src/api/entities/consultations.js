@@ -9,7 +9,8 @@ export const consultationsApi = {
       customer_name: data.customer_name,
       phone: data.phone,
       vehicle_name: data.vehicle_name || null,
-      preferred_method: data.preferred_method || '상관없음',
+      timeline: data.timeline || null,
+      monthly_budget: data.monthly_budget || null,
       message: data.message || null,
       status: data.status || '대기중'
     };
@@ -69,7 +70,8 @@ async function sendSlackNotification(consultation) {
             { type: 'mrkdwn', text: `*고객명:*\n${consultation.customer_name}` },
             { type: 'mrkdwn', text: `*연락처:*\n${consultation.phone}` },
             { type: 'mrkdwn', text: `*희망차량:*\n${consultation.vehicle_name || '미정'}` },
-            { type: 'mrkdwn', text: `*선호 상담방식:*\n${consultation.preferred_method || '상관없음'}` }
+            { type: 'mrkdwn', text: `*차량 필요 시기:*\n${consultation.timeline || '-'}` },
+            { type: 'mrkdwn', text: `*월 예산:*\n${consultation.monthly_budget || '-'}` }
           ]
         },
         ...(consultation.message ? [{
@@ -100,7 +102,8 @@ async function sendToGoogleSheet(consultation) {
       customer_name: consultation.customer_name,
       phone: consultation.phone,
       vehicle_name: consultation.vehicle_name || '',
-      preferred_method: consultation.preferred_method || '',
+      timeline: consultation.timeline || '',
+      monthly_budget: consultation.monthly_budget || '',
       message: consultation.message || ''
     })
   });
