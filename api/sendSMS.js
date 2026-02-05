@@ -43,7 +43,7 @@ export default async function handler(req, res) {
     }
 
     // CoolSMS 인증 정보 생성
-    const timestamp = Date.now().toString();
+    const timestamp = new Date().toISOString();
     const salt = crypto.randomBytes(32).toString('hex');
     const signature = crypto
       .createHmac('sha256', apiSecret)

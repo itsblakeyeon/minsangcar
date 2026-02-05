@@ -2,77 +2,49 @@ const axios = require('axios');
 const crypto = require('crypto');
 const { SmsLog } = require('../models');
 
-const PPURIO_API_URL = 'https://message.ppurio.com';
+const COOLSMS_API_URL = 'https://api.coolsms.co.kr';
 
 class SmsService {
   constructor() {
-    this.account = process.env.PPURIO_ACCOUNT;
-    this.apiKey = process.env.PPURIO_API_KEY;
-    this.from = process.env.PPURIO_FROM;
-    this.token = null;
-    this.tokenExpiry = null;
+    this.apiKey = process.env.COOLSMS_API_KEY;
+    this.apiSecret = process.env.COOLSMS_API_SECRET;
+    this.from = process.env.COOLSMS_FROM;
 
     // API 키가 없으면 Mock 모드
-    this.mockMode = !this.apiKey || this.apiKey === 'your_ppurio_api_key';
-    console.log(`[SmsService] Mock 모드: ${this.mockMode}`);
+    this.mockMode = !this.apiKey || !this.apiSecret;
+    console.log(`[SmsService] CoolSMS 사용 - Mock 모드: ${this.mockMode}`);
   }
 
-  generateRefKey() {
-    return crypto.randomBytes(16).toString('hex'); // 32자 랜덤 문자열
+  generateSignature(timestamp, salt) {
+    return crypto
+      .createHmac('sha256', this.apiSecret)
+      .update(timestamp + salt)
+      .digest('hex');
   }
 
-  async getToken() {
-    // 토큰이 유효하면 재사용
-    if (this.token && this.tokenExpiry && Date.now() < this.tokenExpiry) {
-      return this.token;
-    }
-
-    const credentials = `${this.account}:${this.apiKey}`;
-    const auth = Buffer.from(credentials).toString('base64');
-
-    const response = await axios.post(
-      `${PPURIO_API_URL}/v1/token`,
-      {},
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Basic ${auth}`,
-        },
-        timeout: 30000,
-      }
-    );
-
-    this.token = response.data.token;
-    this.tokenExpiry = Date.now() + 23 * 60 * 60 * 1000; // 23시간
-
-    console.log('[SmsService] 뿌리오 토큰 발급 완료');
-    return this.token;
-  }
-
-  async sendViaPpurio(to, message) {
-    const token = await this.getToken();
+  async sendViaCoolSMS(to, message) {
     const phoneNumber = to.replace(/-/g, '');
+    const timestamp = new Date().toISOString();
+    const salt = crypto.randomBytes(32).toString('hex');
+    const signature = this.generateSignature(timestamp, salt);
 
     const payload = {
-      account: this.account,
-      messageType: 'SMS',
-      from: this.from,
-      content: message,
-      duplicateFlag: 'Y',
-      targetCount: 1,
-      targets: [{ to: phoneNumber }],
-      refKey: this.generateRefKey(),
+      message: {
+        to: phoneNumber,
+        from: this.from,
+        text: message
+      }
     };
 
-    console.log('[SmsService] 발송 요청:', { to: phoneNumber, message });
+    console.log('[SmsService] CoolSMS 발송 요청:', { to: phoneNumber, from: this.from });
 
     const response = await axios.post(
-      `${PPURIO_API_URL}/v1/message`,
+      `${COOLSMS_API_URL}/messages/v4/send`,
       payload,
       {
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `HMAC-SHA256 apiKey=${this.apiKey}, date=${timestamp}, salt=${salt}, signature=${signature}`
         },
         timeout: 30000,
       }
@@ -99,12 +71,12 @@ class SmsService {
       };
     }
 
-    // 실제 뿌리오 API 발송
+    // 실제 CoolSMS API 발송
     const log = await SmsLog.create(to, message, 'pending');
 
     try {
-      const result = await this.sendViaPpurio(to, message);
-      console.log(`[SmsService] 발송 성공: ${to}`, result);
+      const result = await this.sendViaCoolSMS(to, message);
+      console.log(`[SmsService] CoolSMS 발송 성공: ${to}`, result);
 
       return {
         success: true,
@@ -112,12 +84,11 @@ class SmsService {
         to,
         message,
         logId: log.id,
-        messageKey: result.messageKey,
-        refKey: result.refKey,
+        groupId: result.groupId,
         timestamp: log.created_at,
       };
     } catch (error) {
-      console.error(`[SmsService] 발송 실패: ${to}`, error.response?.data || error.message);
+      console.error(`[SmsService] CoolSMS 발송 실패: ${to}`, error.response?.data || error.message);
 
       return {
         success: false,

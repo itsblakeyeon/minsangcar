@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>민생카 SMS 대시보드</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .send-sms-form {
+            display: grid;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        input, textarea, button {
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        button {
+            background: #4880EE;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        button:hover {
+            background: #3366CC;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .status-sent {
+            color: #28a745;
+            font-weight: 600;
+        }
+        .status-pending {
+            color: #ffc107;
+            font-weight: 600;
+        }
+        .status-failed {
+            color: #dc3545;
+            font-weight: 600;
+        }
+        .message-preview {
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 민생카 SMS 대시보드</h1>
+
+        <!-- Send SMS Form -->
+        <div class="card">
+            <h2>SMS 발송</h2>
+            <form id="smsForm" class="send-sms-form">
+                <input type="tel" id="phoneNumber" placeholder="전화번호 (01012345678)" required>
+                <textarea id="message" placeholder="메시지 내용" rows="4" required></textarea>
+                <button type="submit">문자 보내기</button>
+            </form>
+            <div id="formMessage"></div>
+        </div>
+
+        <!-- SMS Logs -->
+        <div class="card">
+            <h2>SMS 발송 내역</h2>
+            <div id="smsLogsLoading" class="loading">로딩 중...</div>
+            <div id="smsLogsTable" style="display:none;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>발송 시간</th>
+                            <th>받는 사람</th>
+                            <th>메시지</th>
+                            <th>상태</th>
+                        </tr>
+                    </thead>
+                    <tbody id="smsLogsBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Customers List -->
+        <div class="card">
+            <h2>고객 목록</h2>
+            <div id="customersLoading" class="loading">로딩 중...</div>
+            <div id="customersTable" style="display:none;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>이름</th>
+                            <th>전화번호</th>
+                            <th>상태</th>
+                            <th>생성일</th>
+                        </tr>
+                    </thead>
+                    <tbody id="customersBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Format date
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString('ko-KR', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // Format phone number
+        function formatPhone(phone) {
+            if (!phone) return '-';
+            const cleaned = phone.replace(/\D/g, '');
+            if (cleaned.length === 11) {
+                return cleaned.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
+            } else if (cleaned.length === 10) {
+                return cleaned.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
+            }
+            return phone;
+        }
+
+        // Load SMS logs
+        async function loadSmsLogs() {
+            try {
+                const response = await fetch('/api/sms/logs');
+                const logs = await response.json();
+
+                const tbody = document.getElementById('smsLogsBody');
+                tbody.innerHTML = '';
+
+                if (logs.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#999;">발송 내역이 없습니다</td></tr>';
+                } else {
+                    logs.forEach(log => {
+                        const statusClass = log.status === 'sent' ? 'status-sent' :
+                                          log.status === 'pending' ? 'status-pending' : 'status-failed';
+                        const statusText = log.status === 'sent' ? '발송 완료' :
+                                         log.status === 'pending' ? '발송 중' : '실패';
+
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${formatDate(log.created_at)}</td>
+                            <td>${formatPhone(log.recipient)}</td>
+                            <td class="message-preview" title="${log.message}">${log.message}</td>
+                            <td class="${statusClass}">${statusText}</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                }
+
+                document.getElementById('smsLogsLoading').style.display = 'none';
+                document.getElementById('smsLogsTable').style.display = 'block';
+            } catch (error) {
+                document.getElementById('smsLogsLoading').innerHTML = '데이터를 불러오는데 실패했습니다.';
+                console.error('Error loading SMS logs:', error);
+            }
+        }
+
+        // Load customers
+        async function loadCustomers() {
+            try {
+                const response = await fetch('/api/customers');
+                const customers = await response.json();
+
+                const tbody = document.getElementById('customersBody');
+                tbody.innerHTML = '';
+
+                if (customers.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#999;">고객 정보가 없습니다</td></tr>';
+                } else {
+                    customers.forEach(customer => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${customer.name || '-'}</td>
+                            <td>${formatPhone(customer.phone)}</td>
+                            <td>${customer.status || '-'}</td>
+                            <td>${formatDate(customer.created_at)}</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                }
+
+                document.getElementById('customersLoading').style.display = 'none';
+                document.getElementById('customersTable').style.display = 'block';
+            } catch (error) {
+                document.getElementById('customersLoading').innerHTML = '데이터를 불러오는데 실패했습니다.';
+                console.error('Error loading customers:', error);
+            }
+        }
+
+        // Send SMS
+        document.getElementById('smsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const phone = document.getElementById('phoneNumber').value;
+            const message = document.getElementById('message').value;
+            const formMessage = document.getElementById('formMessage');
+
+            try {
+                const response = await fetch('/api/sms/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ to: phone, message })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    formMessage.className = 'success';
+                    formMessage.textContent = '✅ SMS가 발송되었습니다!';
+                    document.getElementById('smsForm').reset();
+
+                    // Reload data
+                    loadSmsLogs();
+                    loadCustomers();
+                } else {
+                    formMessage.className = 'error';
+                    formMessage.textContent = '❌ ' + (result.error || 'SMS 발송 실패');
+                }
+            } catch (error) {
+                formMessage.className = 'error';
+                formMessage.textContent = '❌ 서버 오류가 발생했습니다.';
+                console.error('Error sending SMS:', error);
+            }
+
+            setTimeout(() => {
+                formMessage.textContent = '';
+                formMessage.className = '';
+            }, 5000);
+        });
+
+        // Load data on page load
+        loadSmsLogs();
+        loadCustomers();
+
+        // Auto refresh every 30 seconds
+        setInterval(() => {
+            loadSmsLogs();
+            loadCustomers();
+        }, 30000);
+    </script>
+</body>
+</html>
