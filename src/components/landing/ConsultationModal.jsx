@@ -132,7 +132,7 @@ const ModalContent = ({ isSuccess, isSubmitting, formData, setFormData, handleSu
                         <div className="relative">
                             <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                             <Input
-                                placeholder="예: 50만원"
+                                placeholder="예) 최대 월 110만원"
                                 value={formData.monthly_budget}
                                 onChange={(e) => setFormData({...formData, monthly_budget: e.target.value})}
                                 className="pl-10 bg-white text-slate-900 placeholder:text-slate-400 focus:border-[#4880EE] focus:ring-[#4880EE] border-slate-200"
