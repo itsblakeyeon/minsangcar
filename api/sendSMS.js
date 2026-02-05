@@ -27,7 +27,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { to, message, customerName } = req.body;
+    const { to, message, customerName, imageUrl } = req.body;
 
     if (!to || !message) {
       return res.status(400).json({ error: 'to와 message는 필수입니다' });
@@ -57,18 +57,27 @@ export default async function handler(req, res) {
       .update(timestamp + salt)
       .digest('hex');
 
-    // SMS 발송
+    // MMS 발송 (이미지 포함)
     const phoneNumber = to.replace(/-/g, '');
 
     const smsPayload = {
       message: {
         to: phoneNumber,
         from: from,
-        text: message
+        text: message,
+        ...(imageUrl && {
+          type: 'MMS',
+          imageUrl: imageUrl
+        })
       }
     };
 
-    console.log('📱 CoolSMS 발송 시도:', { to: phoneNumber, from });
+    console.log('📱 CoolSMS 발송 시도:', {
+      to: phoneNumber,
+      from,
+      type: imageUrl ? 'MMS' : 'SMS',
+      hasImage: !!imageUrl
+    });
 
     const response = await fetch(`${COOLSMS_API_URL}/messages/v4/send`, {
       method: 'POST',

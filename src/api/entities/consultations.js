@@ -106,10 +106,17 @@ async function sendToGoogleSheet(consultation) {
   });
 }
 
-// 뿌리오 SMS 발송 (Vercel Serverless Function)
+// CoolSMS MMS 발송 (Vercel Serverless Function)
 async function sendSMS(consultation) {
   try {
-    const message = `안녕하세요 ${consultation.customer_name}님! 민생카입니다. 문의 주셔서 감사합니다. 곧 연락드리겠습니다!`;
+    const message = `안녕하세요!! ${consultation.customer_name}님!
+저신용 테슬라 신차렌트 관심있다고 하셔서
+연락남겨드립니다!
+
+무심사 테슬라 쪽에서는
+전국에서 제일 낮은 조건으로 알아봐 드리겠습니다!
+
+궁금하신 부분은 다 여쭤봐 주세요!!!`;
 
     const response = await fetch('/api/sendSMS', {
       method: 'POST',
@@ -117,7 +124,8 @@ async function sendSMS(consultation) {
       body: JSON.stringify({
         to: consultation.phone,
         message: message,
-        customerName: consultation.customer_name
+        customerName: consultation.customer_name,
+        imageUrl: 'https://minsangcar.vercel.app/minsangcar-logo.jpg' // MMS 이미지
       })
     });
 
